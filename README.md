@@ -12,73 +12,21 @@ ______________________________________________________________________
 Developers:
 
 - Dan Saattrup Nielsen (dan.nielsen@alexandra.dk)
+- Kenneth Enevoldsen (kennethcenevoldsen@gmail.com)
 
 
-## Setup
+# Quick start
 
-### Set up the environment
-
-1. Run `make install`, which installs Poetry (if it isn't already installed), sets up a virtual environment and all Python dependencies therein.
-2. Run `source .venv/bin/activate` to activate the virtual environment.
-
-### Install new packages
-
-To install new PyPI packages, run:
+If the corpus is stored as `corpus.txt` (both `txt` and `jsonl` files are supported),
+the following deduplicates the corpus and stores the deduplicates corpus into the
+folder `deduplicated`:
 
 ```
-$ poetry add <package-name>
+$ dedup corpus.txt deduplicated
 ```
 
-### Auto-generate API documentation
+This defaults to deduplicating based on blocks of 13 consecutive words, where two
+documents are considered near-duplicate if they have more than 80% of these blocks in
+common. This can all be changed to your specific needs, however.
 
-To auto-generate API document for your project, run:
-
-```
-$ make docs
-```
-
-To view the documentation, run:
-
-```
-$ make view-docs
-```
-
-## Tools used in this project
-* [Poetry](https://towardsdatascience.com/how-to-effortlessly-publish-your-python-package-to-pypi-using-poetry-44b305362f9f): Dependency management
-* [hydra](https://hydra.cc/): Manage configuration files
-* [pre-commit plugins](https://pre-commit.com/): Automate code reviewing formatting
-* [pdoc](https://github.com/pdoc3/pdoc): Automatically create an API documentation for your project
-
-## Project structure
-```
-.
-├── .flake8
-├── .github
-│   └── workflows
-│       ├── ci.yaml
-│       └── docs.yaml
-├── .gitignore
-├── .pre-commit-config.yaml
-├── CHANGELOG.md
-├── CODE_OF_CONDUCT.md
-├── CONTRIBUTING.md
-├── LICENSE
-├── README.md
-├── config
-│   ├── __init__.py
-│   └── config.yaml
-├── data
-├── makefile
-├── models
-├── notebooks
-├── poetry.toml
-├── pyproject.toml
-├── src
-│   ├── scripts
-│   │   ├── fix_dot_env_file.py
-│   │   └── versioning.py
-│   └── nlp_dedup
-│       └── __init__.py
-└── tests
-    └── __init__.py
-```
+See `$ dedup --help` for more information on all the settings.
