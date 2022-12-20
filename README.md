@@ -3,10 +3,10 @@
 Remove duplicates and near-duplicates from text corpora, no matter the scale.
 
 ______________________________________________________________________
-[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://saattrupdan.github.io/nlp_dedup/nlp_dedup.html)
-[![License](https://img.shields.io/github/license/saattrupdan/nlp_dedup)](https://github.com/saattrupdan/nlp_dedup/blob/main/LICENSE)
-[![LastCommit](https://img.shields.io/github/last-commit/saattrupdan/nlp_dedup)](https://github.com/saattrupdan/nlp_dedup/commits/main)
-[![Code Coverage](https://img.shields.io/badge/Coverage-0%25-red.svg)](https://github.com/saattrupdan/nlp_dedup/tree/main/tests)
+[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://saattrupdan.github.io/NLPDedup/nlp_dedup.html)
+[![License](https://img.shields.io/github/license/saattrupdan/NLPDedup)](https://github.com/saattrupdan/NLPDedup/blob/main/LICENSE)
+[![LastCommit](https://img.shields.io/github/last-commit/saattrupdan/NLPDedup)](https://github.com/saattrupdan/NLPDedup/commits/main)
+[![Code Coverage](https://img.shields.io/badge/Coverage-0%25-red.svg)](https://github.com/saattrupdan/NLPDedup/tree/main/tests)
 
 
 Developers:
