@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nlp_dedup"
-version = "0.0.0"
+version = "0.1.0"
 description = "Remove duplicates and near-duplicates from text corpora, no matter the scale."
 authors = [
     "Dan Saattrup Nielsen <dan.nielsen@alexandra.dk>",
