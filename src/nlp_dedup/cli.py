@@ -142,7 +142,7 @@ def main(
 
     Args:
         corpus (str):
-            The text corpus to deduplicate.
+            The path to the file containing the text corpus to deduplicate.
         split_method (str):
             The method to split the documents into shingles.
         ngram_size (int):
