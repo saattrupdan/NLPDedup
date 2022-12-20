@@ -21,13 +21,14 @@ import pickle
 import shutil
 from functools import partial
 from pathlib import Path
-from typing import Callable, Dict, Generator, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Generator, Iterable, List, Optional, Union
 
 import more_itertools as mit
 from datasketch import MinHashLSH
 from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
+from .types import Corpus
 from .utils import append_to_jsonl, default_normalization, get_minhash
 
 # Set up logging
@@ -66,6 +67,16 @@ class Deduper:
         normalization_func: (Callable[[str], str], optional):
             The function used to normalize documents before they are compared to
             ignore insignificant differences. Needs to be pickleable.
+        store_corpus_to_disk (bool, optional):
+            Whether to store the corpus to disk. Defaults to True.
+        store_mask_to_disk (bool, optional):
+            Whether to store the mask to disk. Defaults to True.
+        store_lsh_cache_to_disk (bool, optional):
+            Whether to store the LSH cache to disk. Defaults to True.
+        store_config_to_disk (bool, optional):
+            Whether to store the configuration to disk. Defaults to True.
+        return_generator (bool, optional):
+            Whether to return a generator which yields the mask. Defaults to False.
         verbose (bool, optional):
             Print progress to stdout. Defaults to True.
 
@@ -79,6 +90,11 @@ class Deduper:
         n_jobs (int): The number of parallel jobs to use.
         random_seed (int): The random seed to use for the MinHash functions.
         normalization_func (Callable): The function used for normalization.
+        store_corpus_to_disk (bool): Whether to store the corpus to disk.
+        store_mask_to_disk (bool): Whether to store the mask to disk.
+        store_lsh_cache_to_disk (bool): Whether to store the LSH cache to disk.
+        store_config_to_disk (bool): Whether to store the configuration to disk.
+        return_generator (bool): Whether to return a generator which yields the mask.
         verbose (bool): Print progress to stdout.
 
     References:
@@ -99,8 +115,13 @@ class Deduper:
         random_seed: int = 4242,
         normalization_func: Callable[[str], str] = default_normalization,
         save_mask: bool = True,
+        store_corpus_to_disk: bool = True,
+        store_mask_to_disk: bool = True,
+        store_lsh_cache_to_disk: bool = True,
+        store_config_to_disk: bool = True,
+        return_generator: bool = False,
         verbose: bool = True,
-    ):
+    ) -> None:
 
         # Initialise attributes
         self.split_method = "none" if split_method is None else split_method
@@ -112,8 +133,13 @@ class Deduper:
         self.n_jobs = mp.cpu_count() if n_jobs == -1 else n_jobs
         self.random_seed = random_seed
         self.normalization_func = normalization_func
-        self.verbose = verbose
         self.save_mask = save_mask
+        self.store_corpus_to_disk = store_corpus_to_disk
+        self.store_mask_to_disk = store_mask_to_disk
+        self.store_lsh_cache_to_disk = store_lsh_cache_to_disk
+        self.store_config_to_disk = store_config_to_disk
+        self.return_generator = return_generator
+        self.verbose = verbose
 
         # Initialise mask if we are saving it
         if save_mask:
@@ -124,28 +150,18 @@ class Deduper:
             threshold=self.similarity_threshold, num_perm=self.num_minhashes
         )
 
-    def deduplicate(  # type: ignore[return]
+    def deduplicate(
         self,
-        corpus: Union[
-            Iterable[Tuple[Union[str, int], str]],
-            Generator[Tuple[Union[str, int], str], None, None],
-            Iterable[Dict[str, Union[str, int]]],
-            Generator[Dict[str, Union[str, int]], None, None],
-        ],
+        corpus: Corpus,
         text_column: str = "text",
         output_dir: Union[str, Path] = "deduplicated",
         overwrite: bool = False,
-        store_corpus_to_disk: bool = True,
-        store_mask_to_disk: bool = True,
-        store_lsh_cache_to_disk: bool = True,
-        store_config_to_disk: bool = True,
-        return_generator: bool = False,
         num_docs: Optional[int] = None,
     ) -> Union[Iterable, None]:
         """Removes duplicate documents from the corpus.
 
         Args:
-            corpus (Dataset, IterableDataset, iter of tuples or dicts):
+            corpus (iterable or generator of strings or dictionaries):
                 The corpus to deduplicate.
             text_column (str, optional):
                 The name of the column in the corpus that contains the document
@@ -155,16 +171,6 @@ class Deduper:
             overwrite (bool, optional):
                 Whether to overwrite the output file if it already exists. Defaults to
                 False.
-            store_corpus_to_disk (bool, optional):
-                Whether to store the corpus to disk. Defaults to True.
-            store_mask_to_disk (bool, optional):
-                Whether to store the mask to disk. Defaults to True.
-            store_lsh_cache_to_disk (bool, optional):
-                Whether to store the LSH cache to disk. Defaults to True.
-            store_config_to_disk (bool, optional):
-                Whether to store the configuration to disk. Defaults to True.
-            return_generator (bool, optional):
-                Whether to return a generator which yields the mask. Defaults to False.
             num_docs (int, optional):
                 The number of documents in the corpus. Defaults to None.
 
@@ -182,36 +188,27 @@ class Deduper:
             text_column=text_column,
             output_dir=output_dir,
             overwrite=overwrite,
-            store_corpus_to_disk=store_corpus_to_disk,
-            store_mask_to_disk=store_mask_to_disk,
-            store_lsh_cache_to_disk=store_lsh_cache_to_disk,
-            store_config_to_disk=store_config_to_disk,
-            return_generator=return_generator,
             num_docs=num_docs,
         )
-        if return_generator:
+        if self.return_generator:
             return iterable
         else:
             for _ in iterable:
                 pass
+            return None
 
     def _deduplicate(  # noqa: C901
         self,
-        corpus: Union[Iterable, Generator],
+        corpus: Corpus,
         text_column: str = "text",
         output_dir: Union[str, Path] = "deduplicated",
         overwrite: bool = False,
-        store_corpus_to_disk: bool = True,
-        store_mask_to_disk: bool = True,
-        store_lsh_cache_to_disk: bool = True,
-        store_config_to_disk: bool = True,
-        return_generator: bool = False,
         num_docs: Optional[int] = None,
     ) -> Iterable:
         """Helper function for the `deduplicate` method.
 
         Args:
-            corpus (Dataset, IterableDataset, iter of tuples or dicts):
+            corpus (iterable or generator of strings or dictionaries):
                 The corpus to deduplicate.
             text_column (str, optional):
                 The name of the column in the corpus that contains the document
@@ -221,16 +218,6 @@ class Deduper:
             overwrite (bool, optional):
                 Whether to overwrite the output file if it already exists. Defaults to
                 False.
-            store_corpus_to_disk (bool, optional):
-                Whether to store the corpus to disk. Defaults to True.
-            store_mask_to_disk (bool, optional):
-                Whether to store the mask to disk. Defaults to True.
-            store_lsh_cache_to_disk (bool, optional):
-                Whether to store the LSH cache to disk. Defaults to True.
-            store_config_to_disk (bool, optional):
-                Whether to store the configuration to disk. Defaults to True.
-            return_generator (bool, optional):
-                Whether to return a generator which yields the mask. Defaults to False.
             num_docs (int, optional):
                 The number of documents in the corpus. Defaults to None.
 
@@ -243,9 +230,11 @@ class Deduper:
             FileExistsError:
                 If the output file already exists and `overwrite` is False.
         """
-        # Register number of documents in the corpus
-        if hasattr(corpus, "__len__"):
+        # Register number of documents in the corpus, if possible
+        try:
             num_docs = len(corpus)  # type: ignore[arg-type]
+        except TypeError:
+            pass
 
         # Get a sample of the corpus
         corpus = iter(corpus)
@@ -256,7 +245,7 @@ class Deduper:
 
         # If the corpus contains dictionaries then convert it to an iterable of strings
         if isinstance(sample, dict):
-            corpus = (sample[text_column] for sample in corpus)
+            corpus = (sample[text_column] for sample in corpus)  # type: ignore[index]
 
         # Ensure that `output_dir` is a Path object
         output_dir = Path(output_dir)
@@ -265,21 +254,15 @@ class Deduper:
         # overwrites the existing files or raises an error, depending on whether we are
         # overwriting or not
         if output_dir.exists():
-            self.save_to_disk(
-                output_dir=output_dir,
-                overwrite=overwrite,
-                store_mask_to_disk=store_mask_to_disk,
-                store_lsh_cache_to_disk=store_lsh_cache_to_disk,
-                store_config_to_disk=store_config_to_disk,
-            )
+            self.save_to_disk(directory=output_dir, overwrite=overwrite)
 
         # Else, if the output directory doesn't exist and we are storing anything to
         # disk, then create the directory
         elif (
-            store_corpus_to_disk
-            or store_lsh_cache_to_disk
-            or store_mask_to_disk
-            or store_config_to_disk
+            self.store_corpus_to_disk
+            or self.store_lsh_cache_to_disk
+            or self.store_mask_to_disk
+            or self.store_config_to_disk
         ):
             output_dir.mkdir(parents=True)
 
@@ -290,10 +273,9 @@ class Deduper:
         config_path = output_dir / "config.pkl"
 
         # Store the deduper config to disk
-        if store_config_to_disk:
-            config = self.get_config()
+        if self.store_config_to_disk:
             with config_path.open("wb") as f:
-                pickle.dump(config, f)
+                pickle.dump(self.config, f)
 
         #  Split the corpus into batches of `self.batch_size` documents
         batches = mit.ichunked(corpus, self.batch_size)
@@ -375,7 +357,7 @@ class Deduper:
                             self.lsh_cache.insert(idx, minhash)
 
                             # Store the non-duplicate document in the JSONL output
-                            if store_corpus_to_disk:
+                            if self.store_corpus_to_disk:
                                 append_to_jsonl(
                                     id=idx, text=doc, output_path=output_path
                                 )
@@ -395,18 +377,18 @@ class Deduper:
                             self.mask.append(mask_entry)
 
                         # Yield the mask
-                        if return_generator:
+                        if self.return_generator:
                             yield mask_entry
 
                         # Store the mask to disk
-                        if store_mask_to_disk:
+                        if self.store_mask_to_disk:
                             append_to_jsonl(output_path=mask_path, **mask_entry)
 
                         # Update the document index
                         idx += 1
 
                 # Store the LSH cache to disk
-                if store_lsh_cache_to_disk:
+                if self.store_lsh_cache_to_disk:
                     with lsh_cache_path.open("wb") as f:
                         pickle.dump(self.lsh_cache, f)
 
@@ -431,67 +413,56 @@ class Deduper:
 
     def save_to_disk(
         self,
-        output_dir: Union[str, Path],
+        directory: Union[str, Path],
         overwrite: bool = False,
-        store_mask_to_disk: bool = True,
-        store_lsh_cache_to_disk: bool = True,
-        store_config_to_disk: bool = True,
     ) -> None:
         """Save the Deduper to disk.
 
         Args:
-            output_dir (str or Path, optional):
+            directory (str or Path, optional):
                 The name of the output directory.
             overwrite (bool, optional):
-                Whether to overwrite the output file if it already exists.
-                Defaults to False.
-            store_corpus_to_disk (bool, optional):
-                Whether to store the corpus to disk. Defaults to True.
-            store_mask_to_disk (bool, optional):
-                Whether to store the mask to disk. Defaults to True.
-            store_lsh_cache_to_disk (bool, optional):
-                Whether to store the LSH cache to disk. Defaults to True.
-            store_config_to_disk (bool, optional):
-                Whether to store the configuration to disk. Defaults to True.
+                Whether to overwrite the output file if it already exists. Defaults to
+                False.
         """
-        # Ensure that `output_dir` is a Path object
-        output_dir = Path(output_dir)
+        # Ensure that `directory` is a Path object
+        directory = Path(directory)
 
         # If the output file already exists then raise an error if `overwrite`
         # is False and otherwise delete the file
-        if output_dir.exists() and not overwrite:
+        if directory.exists() and not overwrite:
             raise FileExistsError(
-                f"Output directory {output_dir} already exists. Please set `overwrite` "
+                f"Output directory {directory} already exists. Please set `overwrite` "
                 "to True to overwrite the files. If you are loading an existing "
                 "Deduper from the directory then the previous config, mask and LSH "
                 "cache will still will not be lost and will be stored in the directory."
             )
 
         # Delete the output directory if `overwrite` is set
-        elif output_dir.exists() and overwrite:
-            shutil.rmtree(output_dir)
+        elif directory.exists() and overwrite:
+            shutil.rmtree(directory)
 
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Create the output directory
+        directory.mkdir(parents=True, exist_ok=True)
 
         # Store existing mask
-        if self.save_mask and store_mask_to_disk:
-            mask_path = output_dir / "mask.jsonl"
+        if self.save_mask and self.store_mask_to_disk:
+            mask_path = directory / "mask.jsonl"
             mask_str = "\n".join(json.dumps(sample) for sample in self.mask)
             with mask_path.open("w") as f:
                 f.write(mask_str)
 
         # Store existing LSH cache
-        if store_lsh_cache_to_disk:
-            lsh_cache_path = output_dir / "lsh_cache.pkl"
+        if self.store_lsh_cache_to_disk:
+            lsh_cache_path = directory / "lsh_cache.pkl"
             with lsh_cache_path.open("wb") as f:
                 pickle.dump(self.lsh_cache, f)
 
         # Store existing configuration
-        if store_config_to_disk:
-            config_path = output_dir / "config.pkl"
-            config = self.get_config()
+        if self.store_config_to_disk:
+            config_path = directory / "config.pkl"
             with config_path.open("wb") as f:
-                pickle.dump(config, f)
+                pickle.dump(self.config, f)
 
     @classmethod
     def load_from_disk(cls, directory: Union[str, Path]) -> "Deduper":
@@ -517,7 +488,8 @@ class Deduper:
             raise FileNotFoundError(f"Directory {directory} does not exist.")
 
         # Load the config file
-        with open(directory / "config.pkl", "rb") as f:
+        config_path = directory / "config.pkl"
+        with config_path.open("rb") as f:
             config = pickle.load(f)
 
         # Create the Deduper
@@ -526,15 +498,15 @@ class Deduper:
         # Load the mask if it exists
         mask_path = directory / "mask.jsonl"
         if mask_path.exists():
-            with open(mask_path, "r") as f:
+            with mask_path.open() as f:
                 mask = [json.loads(line) for line in f]
             deduper.mask = mask
 
         # Load the LSH cache
-        with open(directory / "lsh_cache.pkl", "rb") as f:
+        lsh_cache_path = directory / "lsh_cache.pkl"
+        with lsh_cache_path.open("rb") as f:
             deduper.lsh_cache = pickle.load(f)
 
-        # Return the Deduper
         return deduper
 
     def reset(self):
@@ -546,14 +518,15 @@ class Deduper:
         )
         return self
 
-    def get_config(self) -> dict:
+    @property
+    def config(self) -> dict:
         """Get the configuration of the deduplicator.
 
         Returns:
             dict:
                 The configuration of the deduplicator.
         """
-        config = dict(
+        return dict(
             split_method=self.split_method,
             ngram_size=self.ngram_size,
             ngram_stride=self.ngram_stride,
@@ -565,4 +538,3 @@ class Deduper:
             normalization_func=self.normalization_func,
             verbose=self.verbose,
         )
-        return config

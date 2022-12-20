@@ -2,6 +2,8 @@
 
 import click
 
+from .deduper import Deduper
+
 
 @click.command()
 def main() -> None:
