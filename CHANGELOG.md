@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [v0.1.1] - 2022-12-20
 ### Fixed
 - Import `Deduper` in `__init__.py`, allowing import of the class using
   `from nlp_dedup import Deduper`.
