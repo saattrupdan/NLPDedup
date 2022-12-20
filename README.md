@@ -15,6 +15,12 @@ Developers:
 - Kenneth Enevoldsen (kennethcenevoldsen@gmail.com)
 
 
+# Installation
+
+The package is available on PyPI, so you can install the package using your favourite
+package manager. For instance, `pip install nlp_dedup` or `poetry add nlp_dedup`.
+
+
 # Quick start
 
 If the corpus is stored as `corpus.txt` (both `txt` and `jsonl` files are supported),
