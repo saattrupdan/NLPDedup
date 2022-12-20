@@ -1,6 +1,7 @@
 """Command line interface for deduplicating a text corpus."""
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, Generator, Union
 
@@ -11,6 +12,7 @@ from .deduper import Deduper
 
 @click.command()
 @click.argument("corpus", type=click.Path(exists=True))
+@click.argument("output-dir", type=click.Path())
 @click.option(
     "--split-method",
     type=click.Choice(["word_ngram", "paragraph", "none"]),
@@ -70,7 +72,7 @@ from .deduper import Deduper
 @click.option(
     "--store-corpus-to-disk/--no-store-corpus-to-disk",
     type=bool,
-    default=False,
+    default=True,
     show_default=True,
     help="Whether to store the corpus to disk.",
 )
@@ -89,9 +91,16 @@ from .deduper import Deduper
     help="Whether to store the LSH cache to disk.",
 )
 @click.option(
+    "--store-config-to-disk/--no-store-config-to-disk",
+    type=bool,
+    default=True,
+    show_default=True,
+    help="Whether to store the config to disk.",
+)
+@click.option(
     "--verbose/--no-verbose",
     type=bool,
-    default=False,
+    default=True,
     show_default=True,
     help="Whether to print output.",
 )
@@ -102,13 +111,6 @@ from .deduper import Deduper
     show_default=True,
     help="""The name of the column containing the text, if the entries in the corpus
     are dictionaries.""",
-)
-@click.option(
-    "--output-dir",
-    type=str,
-    default="deduplicated",
-    show_default=True,
-    help="The directory to store the deduplicated corpus in.",
 )
 @click.option(
     "--overwrite/--no-overwrite",
@@ -130,6 +132,7 @@ def main(
     store_corpus_to_disk: bool,
     store_mask_to_disk: bool,
     store_lsh_cache_to_disk: bool,
+    store_config_to_disk: bool,
     verbose: bool,
     text_column: str,
     output_dir: str,
@@ -162,6 +165,8 @@ def main(
             Whether to store the mask to disk.
         store_lsh_cache_to_disk (bool):
             Whether to store the LSH cache to disk.
+        store_config_to_disk (bool):
+            Whether to store the config to disk.
         verbose (bool):
             Whether to print output.
         text_column (str):
@@ -185,14 +190,24 @@ def main(
         store_corpus_to_disk=store_corpus_to_disk,
         store_mask_to_disk=store_mask_to_disk,
         store_lsh_cache_to_disk=store_lsh_cache_to_disk,
+        store_config_to_disk=store_config_to_disk,
         verbose=verbose,
     )
+
+    # Count the number of lines in the corpus
+    proc = subprocess.Popen(
+        ["wc", "-l", corpus], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    num_docs = int(proc.communicate()[0].split()[0])
 
     # Create generator for the corpus
     def corpus_generator() -> Generator[Union[str, Dict[str, Any]], None, None]:
         with Path(corpus).open() as f:
             for line in f:
-                yield json.loads(line)
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    yield line.strip("\n")
 
     # Deduplicate the corpus
     deduper.deduplicate(
@@ -200,4 +215,5 @@ def main(
         text_column=text_column,
         output_dir=output_dir,
         overwrite=overwrite,
+        num_docs=num_docs,
     )
