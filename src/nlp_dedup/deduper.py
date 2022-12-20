@@ -21,7 +21,7 @@ import pickle
 import shutil
 from functools import partial
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import more_itertools as mit
 from datasketch import MinHashLSH
@@ -29,7 +29,7 @@ from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
 from .types import Corpus
-from .utils import append_to_jsonl, default_normalization, get_minhash
+from .utils import append_to_jsonl, get_minhash
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -113,7 +113,6 @@ class Deduper:
         batch_size: int = 100_000_000,
         n_jobs: int = -1,
         random_seed: int = 4242,
-        normalization_func: Callable[[str], str] = default_normalization,
         save_mask: bool = True,
         store_corpus_to_disk: bool = True,
         store_mask_to_disk: bool = True,
@@ -132,7 +131,6 @@ class Deduper:
         self.batch_size = batch_size
         self.n_jobs = mp.cpu_count() if n_jobs == -1 else n_jobs
         self.random_seed = random_seed
-        self.normalization_func = normalization_func
         self.save_mask = save_mask
         self.store_corpus_to_disk = store_corpus_to_disk
         self.store_mask_to_disk = store_mask_to_disk
@@ -270,12 +268,12 @@ class Deduper:
         output_path = output_dir / "deduplicated_corpus.jsonl"
         mask_path = output_dir / "mask.jsonl"
         lsh_cache_path = output_dir / "lsh_cache.pkl"
-        config_path = output_dir / "config.pkl"
+        config_path = output_dir / "config.json"
 
         # Store the deduper config to disk
         if self.store_config_to_disk:
-            with config_path.open("wb") as f:
-                pickle.dump(self.config, f)
+            with config_path.open("w") as f:
+                json.dump(self.config, f, indent=4)
 
         #  Split the corpus into batches of `self.batch_size` documents
         batches = mit.ichunked(corpus, self.batch_size)
@@ -298,7 +296,6 @@ class Deduper:
             fn = delayed(
                 partial(
                     get_minhash,
-                    normalization_func=self.normalization_func,
                     split_method=self.split_method,
                     ngram_size=self.ngram_size,
                     ngram_stride=self.ngram_stride,
@@ -432,10 +429,11 @@ class Deduper:
         # is False and otherwise delete the file
         if directory.exists() and not overwrite:
             raise FileExistsError(
-                f"Output directory {directory} already exists. Please set `overwrite` "
-                "to True to overwrite the files. If you are loading an existing "
-                "Deduper from the directory then the previous config, mask and LSH "
-                "cache will still will not be lost and will be stored in the directory."
+                f"Output directory {directory!r} already exists. Please set "
+                "`overwrite` to True to overwrite the files. If you are loading an "
+                "existing Deduper from the directory then the previous config, mask "
+                "and LSH cache will still will not be lost and will be stored in the "
+                "directory."
             )
 
         # Delete the output directory if `overwrite` is set
@@ -460,9 +458,9 @@ class Deduper:
 
         # Store existing configuration
         if self.store_config_to_disk:
-            config_path = directory / "config.pkl"
-            with config_path.open("wb") as f:
-                pickle.dump(self.config, f)
+            config_path = directory / "config.json"
+            with config_path.open("w") as f:
+                json.dump(self.config, f, indent=4)
 
     @classmethod
     def load_from_disk(cls, directory: Union[str, Path]) -> "Deduper":
@@ -488,9 +486,9 @@ class Deduper:
             raise FileNotFoundError(f"Directory {directory} does not exist.")
 
         # Load the config file
-        config_path = directory / "config.pkl"
-        with config_path.open("rb") as f:
-            config = pickle.load(f)
+        config_path = directory / "config.json"
+        with config_path.open() as f:
+            config = json.load(f)
 
         # Create the Deduper
         deduper = cls(**config)
@@ -535,6 +533,5 @@ class Deduper:
             batch_size=self.batch_size,
             n_jobs=self.n_jobs,
             random_seed=self.random_seed,
-            normalization_func=self.normalization_func,
             verbose=self.verbose,
         )
