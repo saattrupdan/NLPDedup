@@ -3,26 +3,10 @@
 import json
 import re
 from pathlib import Path
-from typing import Callable, List, Union
+from typing import List, Union
 from unicodedata import normalize
 
 from datasketch import LeanMinHash, MinHash
-
-
-def default_normalization(doc: str) -> str:
-    """NFKC normalise document and remove punctuation.
-
-    Args:
-        doc (str):
-            The document to normalize.
-
-    Returns:
-        str:
-            The normalized document.
-    """
-    doc = normalize("NFKC", doc)
-    doc = re.sub(r"[\.\,\:\;\!\?\(\)\[\]\{\}]", " ", doc)
-    return re.sub(" +", " ", doc)
 
 
 def append_to_jsonl(output_path: Union[str, Path], **data_kwargs):
@@ -41,7 +25,6 @@ def append_to_jsonl(output_path: Union[str, Path], **data_kwargs):
 
 def get_minhash(
     doc: str,
-    normalization_func: Callable,
     split_method: str,
     ngram_size: int,
     ngram_stride: int,
@@ -53,8 +36,6 @@ def get_minhash(
     Args:
         doc (str):
             The document to create the MinHash object for.
-        normalization_func (Callable):
-            The function to normalize the document with.
         split_method (str):
             The method to split the document into shingles.
             Can be 'word_ngram', 'paragraph', 'none' or None.
@@ -78,7 +59,6 @@ def get_minhash(
     # Extract shingles from the document, depending on the `split_method`
     shingles = get_shingles(
         doc,
-        normalization_func=normalization_func,
         split_method=split_method,
         ngram_size=ngram_size,
         ngram_stride=ngram_stride,
@@ -100,7 +80,6 @@ def get_minhash(
 
 def get_shingles(
     doc: str,
-    normalization_func: Callable,
     split_method: str,
     ngram_size: int,
     ngram_stride: int,
@@ -110,8 +89,6 @@ def get_shingles(
     Args:
         doc (str):
             The document to extract the shingles from.
-        normalization_func (Callable):
-            The function to normalize the document with.
         split_method (str):
             The method to split the document into shingles. Can be 'word_ngram',
             'paragraph', 'none' or None.
@@ -129,7 +106,9 @@ def get_shingles(
             If `split_method` is not 'word_ngram', 'paragraph', 'none' or None.
     """
     # Normalise document
-    doc = normalization_func(doc)
+    doc = normalize("NFKC", doc)
+    doc = re.sub(r"[\.\,\:\;\!\?\(\)\[\]\{\}]", " ", doc)
+    doc = re.sub(" +", " ", doc)
 
     # Extract shingles from the document, depending on the `split_method`
     if split_method == "word_ngram":
