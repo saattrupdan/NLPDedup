@@ -4,8 +4,8 @@ The deduplication is based on the MinHash algorithm [1], which is optimised usin
 parallelism and vectorisation.
 
 Authors:
-    Dan Saattrup Nielsen (dan.nielsen@alexandra.dk)
-    Kenneth Enevoldsen (kennethcenevoldsen@gmail.com)
+    - Dan Saattrup Nielsen (dan.nielsen@alexandra.dk)
+    - Kenneth Enevoldsen (kennethcenevoldsen@gmail.com)
 
 References:
     [1] Broder, Andrei Z. "On the resemblance and containment of documents."
