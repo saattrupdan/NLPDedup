@@ -21,7 +21,7 @@ import pickle
 import shutil
 from functools import partial
 from pathlib import Path
-from typing import Callable, Dict, Generator, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 import more_itertools as mit
 from datasketch import MinHashLSH
