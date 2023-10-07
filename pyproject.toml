@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = "^3.8"
 tqdm = "^4.64.1"
 datasketch = "^1.5.8"
 more-itertools = "^9.0.0"
@@ -62,8 +62,11 @@ exclude = '''
 )/
 '''
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.extend-per-file-ignores]
+"__init__.py" = ["F401"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
